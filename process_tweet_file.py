@@ -26,9 +26,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('twitter_app')
 logger.setLevel(logging.INFO)
 
+database_selection = input("(1)SQLite\n(2)PostgreSQL\n\nSelect a Database(Default: 1):")
+if database_selection == "":
+    database_selection = 1
+else:
+    database_selection = int(database_selection)
+
+
 tweets_data_path = "data/"
 tweets_file_name = "twitter_data_sampled"
 tweets_file_name_original = tweets_file_name
+
 tweets_file_name = input("Enter name of tweet file(Default: '%s'):" %(tweets_file_name))
 
 if tweets_file_name == "":
@@ -37,7 +45,7 @@ if tweets_file_name == "":
 tweets_file_path = tweets_data_path + tweets_file_name + ".txt"
 tweets_file = open(tweets_file_path, "r")
 dc = DataCrawler.DataCrawler()
-dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name)
+dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name, database_selection)
 
 logger.info("Check File Size...")
 num_lines = sum(1 for line in open(tweets_file_path))

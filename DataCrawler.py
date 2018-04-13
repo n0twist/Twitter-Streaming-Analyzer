@@ -96,7 +96,7 @@ class DataCrawler:
         info['retweet_count'] = tweet['retweet_count'] if 'retweet_count' in tweet else None
         info['favorite_count'] = tweet['favorite_count'] if 'favorite_count' in tweet else None
         info['favorited'] = tweet['favorited'] if 'favorited' in tweet else None
-        info['reweeted'] = tweet['reweeted'] if 'reweeted' in tweet else None
+        info['retweeted'] = tweet['retweeted'] if 'retweeted' in tweet else None
         info['lang'] = tweet['lang'] if 'lang' in tweet else None
 
         if 'entities' in tweet:

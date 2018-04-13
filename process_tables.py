@@ -47,10 +47,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('twitter_app')
 logger.setLevel(logging.INFO)
 
+database_selection = input("(1)SQLite\n(2)PostgreSQL\n\nSelect a Database(Default: 1):")
+if database_selection == "":
+    database_selection = 1
+else:
+    database_selection = int(database_selection)
+
 tweets_data_path = "data/"
 tweets_file_name = "twitter_data_sampled"
 tweets_file_name_original = tweets_file_name
-tweets_file_name = input("Enter name of database(Default: '%s'):" %(tweets_file_name))
+
+if database_selection == 1:
+    tweets_file_name = input("Enter name of database(Default: '%s'):" %(tweets_file_name))
 
 if tweets_file_name == "":
     tweets_file_name = tweets_file_name_original
@@ -58,7 +66,10 @@ if tweets_file_name == "":
 media_folder = tweets_data_path + tweets_file_name + "/media/"
 
 dc = DataCrawler.DataCrawler()
-dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name)
+dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name, database_selection)
+
+if database_selection == 2:
+    media_folder = "PostgreSQL/media/"
 
 table = input("(1) url\n(2) media\n(3) icard\n\nselect a table to process (default: 1):")
 if table == None: table = 1;
