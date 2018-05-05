@@ -1,45 +1,29 @@
 import DatabaseManager, DataCrawler
 import logging
 import time
+from multiprocessing import Pool
+i=0
 
-def processURLTable():
-    s_time = time.time()
-    i = 0
-    entries = dm.getURLEntriesToProcess()
-    num_entries = len(entries)
-    logger.info("Number of URLs to process: %s", num_entries)
-    for entry in entries:
-        url_info = dc.getURLInformation(entry)
-        dm.updateURLEntry(url_info)
+def updateProgress(somevalue):
+    global worked
+    worked += 1
+    dc.printProgressBar(worked, len(entries), s_time)
 
-        i += 1
-        dc.printProgressBar(i, num_entries, s_time)
+def processURLTable(entry):
+    url_info = dc.getURLInformation(entry)
+    dm.updateURLEntry(url_info)
 
-def processMediaTable():
-    s_time = time.time()
-    i = 0
-    entries = dm.getMediaEntries()
-    num_entries = len(entries)
-    logger.info("Number of Media Entries to process: %s", num_entries)
-    for entry in entries:
-        media_info = dc.getMediaInformation(entry, media_folder)
-        dm.updateMediaEntry(media_info)
+def processUserURLTable(entry):
+    url_info = dc.getURLInformation(entry)
+    dm.updateUserURLEntry(url_info)
 
-        i += 1
-        dc.printProgressBar(i, num_entries, s_time)
+def processMediaTable(entry):
+    media_info = dc.getMediaInformation(entry, media_folder)
+    dm.updateMediaEntry(media_info)
 
-def processICardsTable():
-    s_time = time.time()
-    i = 0
-    entries = dm.getICardEntries()
-    num_entries = len(entries)
-    logger.info("Number of ICard Entries to process: %s", num_entries)
-    for entry in entries:
-        icard_info = dc.getICardInformation(entry, media_folder)
-        dm.updateICardEntry(icard_info)
-
-        i += 1
-        dc.printProgressBar(i, num_entries, s_time)
+def processICardsTable(entry):
+    icard_info = dc.getICardInformation(entry, media_folder)
+    dm.updateICardEntry(icard_info)
 
 
 logging.basicConfig(level=logging.INFO)
@@ -71,7 +55,7 @@ dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name, databas
 if database_selection == 2:
     media_folder = "PostgreSQL/media/"
 
-table = input("(1) url\n(2) media\n(3) icard\n\nselect a table to process (default: 1):")
+table = input("(1) url\n(2) media\n(3) icard\n(4) user url\n\nselect a table to process (default: 1):")
 if table == None: table = 1;
 else:
     if table == "":
@@ -80,10 +64,61 @@ else:
 
 #if table != 1 or table != 2 or table != 3
 
-if table == 1:
-    processURLTable()
-if table == 2:
-    processMediaTable()
-if table == 3:
-    processICardsTable()
 
+
+if table == 1:
+    s_time = time.time()
+    worked = 0
+    entries = dm.getURLEntriesToProcess()
+    num_entries = len(entries)
+    logger.info("Number of URLs to process: %s", len(entries))
+
+    with Pool(processes=50) as pool:
+        for entry in entries:
+            pool.apply_async(processURLTable, args=(entry,), callback=updateProgress)
+
+        pool.close()
+        pool.join()
+
+if table == 2:
+
+    s_time = time.time()
+    worked = 0
+    entries = dm.getMediaEntriesPostgreSQL()
+    num_entries = len(entries)
+    logger.info("Number of Media Entries to process: %s", len(entries))
+
+    with Pool(processes=50) as pool:
+        for entry in entries:
+            pool.apply_async(processMediaTable, args=(entry,), callback=updateProgress)
+
+        pool.close()
+        pool.join()
+
+if table == 3:
+    s_time = time.time()
+    worked = 0
+    entries = dm.getICardEntriesPostreSQL()
+    num_entries = len(entries)
+    logger.info("Number of ICard Entries to process: %s", len(entries))
+
+    with Pool(processes=10) as pool:
+        for entry in entries:
+            pool.apply_async(processICardsTable, args=(entry,), callback=updateProgress)
+
+        pool.close()
+        pool.join()
+
+if table == 4:
+    s_time = time.time()
+    worked = 0
+    entries = dm.getUserURLEntriesToProcess()
+    num_entries = len(entries)
+    logger.info("Number of User URLs to process: %s", len(entries))
+
+    with Pool(processes=50) as pool:
+        for entry in entries:
+            pool.apply_async(processUserURLTable, args=(entry,), callback=updateProgress)
+
+        pool.close()
+        pool.join()

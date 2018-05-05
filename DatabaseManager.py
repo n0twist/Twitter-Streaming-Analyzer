@@ -22,7 +22,11 @@ class DatabaseManager:
             self.createURLTablePostgreSQL()
             self.createMediaTablePostgreSQL()
             self.createICardTablePostgreSQL()
+            self.createPlaceTablePostgreSQL()
+            self.createUserURLTablePostgreSQL()
 
+    def __del__(self):
+        self.db_info_connection.close()
 
     def create_connection(self, db_file):
         """ create a database connection to the SQLite database
@@ -92,6 +96,7 @@ class DatabaseManager:
                                        hashtags text,
                                        user_mentions text,
                                        number_of_urls integer,
+                                       extracted boolean,
                                        PRIMARY KEY(id));"""
 
         c = conn.cursor()
@@ -122,10 +127,11 @@ class DatabaseManager:
                                        retweet_count,
                                        favorite_count,
                                        favorited,
-                                       reweeted,
+                                       retweeted,
                                        hashtags,
                                        user_mentions,
                                        number_of_urls,
+                                       extracted,
                                        PRIMARY KEY(id));"""
 
         c = conn.cursor()
@@ -234,6 +240,27 @@ class DatabaseManager:
         conn.commit()
         c.close()
 
+    def createUserURLTablePostgreSQL(self):
+        conn = self.db_info_connection
+
+        create_table_str = """CREATE TABLE IF NOT EXISTS user_urls ( 
+                                tweet_id bigint,
+                                short_url text,
+                                resolved_url text,
+                                response_code integer,
+                                domain text,
+                                top_level_domain text,
+                                is_twitter_url boolean,
+                                is_media boolean,
+                                is_processed boolean,
+                                failed boolean,
+                                PRIMARY KEY(tweet_id, short_url));"""
+
+        c = conn.cursor()
+        c.execute(create_table_str)
+        conn.commit()
+        c.close()
+
     def createURLTable(self):
         conn = self.db_info_connection
 
@@ -305,6 +332,34 @@ class DatabaseManager:
             values = (tweet['id'], url, None, None, None, None, None, None, False, False)
             c.execute(ins_row_sql, values)
             conn.commit()
+
+        c.close()
+
+    def insertUserURLRow(self, tweet, id):
+        if self.db_selection == 2:
+            self.insertUserURLRowPostgreSQL(tweet, id)
+
+    def insertUserURLRowPostgreSQL(self, url, id):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+
+        ins_row_sql = """INSERT INTO user_urls( 
+                            tweet_id,
+                            short_url,
+                            resolved_url,
+                            response_code,
+                            domain,
+                            top_level_domain,
+                            is_twitter_url,
+                            is_media,
+                            is_processed,
+                            failed)
+                                VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                ON CONFLICT (tweet_id, short_url) DO NOTHING"""
+        values = (id, url, None, None, None, None, None, None, False, False)
+        c.execute(ins_row_sql, values)
+        conn.commit()
 
         c.close()
 
@@ -439,7 +494,7 @@ class DatabaseManager:
 
     def insertICardRow(self, tweet):
         if self.db_selection == 1:
-            self.insertICardRow(tweet)
+            self.insertICardRowSQLite(tweet)
         if self.db_selection == 2:
             self.insertICardRowPostgreSQL(tweet)
 
@@ -517,6 +572,56 @@ class DatabaseManager:
         c = conn.cursor()
         c.execute(create_table_str)
         conn.commit()
+        c.close()
+
+    def createPlaceTablePostgreSQL(self):
+        conn = self.db_info_connection
+
+        create_table_str = """CREATE TABLE IF NOT EXISTS tweets_places ( 
+                                tweet_id bigint,
+                                id text,
+                                country text,
+                                country_code text,
+                                full_name text,
+                                name text,
+                                place_type text,
+                                url text,
+                                type text,
+                                coordinates text,
+                                PRIMARY KEY(tweet_id));"""
+
+        c = conn.cursor()
+        c.execute(create_table_str)
+        conn.commit()
+        c.close()
+
+    def insertPlaceRow(self, tweet):
+        if self.db_selection == 2:
+            self.insertPlaceRowPostgreSQL(tweet)
+
+    def insertPlaceRowPostgreSQL(self, tweet):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        ins_row_sql = """INSERT INTO tweets_places( 
+                            tweet_id,
+                            id,
+                            country,
+                            country_code,
+                            full_name,
+                            name,
+                            place_type,
+                            url,
+                            type,
+                            coordinates)
+                                VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                ON CONFLICT (tweet_id) DO NOTHING"""
+        values = (tweet['tweet_id'], tweet['id'], tweet['country'], tweet['country_code'],
+                  tweet['full_name'], tweet['name'], tweet['place_type'], tweet['url'], tweet['type'],
+                  tweet['coordinates'])
+        c.execute(ins_row_sql, values)
+        conn.commit()
+
         c.close()
 
     def createUserTable(self):
@@ -605,6 +710,10 @@ class DatabaseManager:
             return "ON CONFLICT (tweet_id, media_url)"
         if table_name == "tweets_users":
             return "ON CONFLICT (id)"
+        if table_name == "tweets_places":
+            return "ON CONFLICT (tweet_id)"
+        if table_name == "user_urls":
+            return "ON CONFLICT (tweet_id, short_url)"
 
     def insertRowSQLite(self, tweet, table_name):
         conn = self.db_info_connection
@@ -637,16 +746,6 @@ class DatabaseManager:
 
         conn.commit()
         c.close()
-
-    def getURLEntriesToProcess(self):
-        conn = self.db_info_connection
-        c = conn.cursor()
-
-        c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is 0 ")
-
-        entries = c.fetchall()
-
-        return entries
 
     def getURLEntriesToProcess(self):
         conn = self.db_info_connection
@@ -697,6 +796,23 @@ class DatabaseManager:
         conn.commit()
 
         c.close()
+
+    def getUserURLEntriesToProcess(self):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        if self.db_selection == 2:
+            c.execute("SELECT tweet_id, short_url FROM user_urls WHERE is_processed is false ")
+            entries = c.fetchall()
+
+            return entries
+
+
+
+    def updateUserURLEntry(self, url_info):
+        if self.db_selection == 2:
+            self.insertRowPostgreSQL(url_info, "user_urls")
+
 
     def getMediaEntries(self):
         if self.db_selection == 1:
@@ -821,4 +937,15 @@ class DatabaseManager:
         c.execute(ins_row_sql, values)
         conn.commit()
 
+        c.close()
+
+    def updateEntryPostgreSQL(self, table_name, column_name, value, id):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        ins_row_sql = "UPDATE %s SET %s = %s WHERE id = %s;" %(table_name, column_name, value, id)
+
+        c.execute(ins_row_sql)
+
+        conn.commit()
         c.close()

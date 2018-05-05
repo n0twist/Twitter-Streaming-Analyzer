@@ -68,7 +68,40 @@ class DataCrawler:
         user['geo_enabled'] = tweet['user']['geo_enabled'] if 'geo_enabled' in tweet['user'] else None
         user['lang'] = tweet['user']['lang'] if 'lang' in tweet['user'] else None
 
+
         return user
+
+    def getUserLink(self, tweet):
+        short_url = tweet['user']['url'] if 'url' in tweet['user'] else None
+        if short_url != None:
+            if self.is_url_valid(short_url):
+                return short_url
+            else:
+                return None
+        else:
+            return None
+
+
+    def getPlaceInfo(self, tweet):
+        place = {}
+
+        place['tweet_id'] = tweet['id']if 'id' in tweet else None
+        place['id'] = tweet['place']['id'] if 'id' in tweet['place'] else None
+        place['country'] = tweet['place']['country'] if 'country' in tweet['place'] else None
+        place['country_code'] = tweet['place']['country_code'] if 'country_code' in tweet['place'] else None
+        place['full_name'] = tweet['place']['full_name'] if 'full_name' in tweet['place'] else None
+        place['id'] = tweet['place']['id'] if 'id' in tweet['place'] else None
+        place['name'] = tweet['place']['name'] if 'name' in tweet['place'] else None
+        place['place_type'] = tweet['place']['place_type'] if 'place_type' in tweet['place'] else None
+        place['url'] = tweet['place']['url'] if 'url' in tweet['place'] else None
+
+        if 'bounding_box' in tweet['place']:
+            place['type'] = tweet['place']['bounding_box']['type'] if 'type' in tweet['place']['bounding_box'] else None
+            place['coordinates'] = str(tweet['place']['bounding_box']['coordinates']) if 'coordinates' in tweet['place']['bounding_box'] else None
+        else:
+            place['type'] = None
+            place['coordinates'] = None
+        return place
 
     def getTweetInformation(self, tweet):
         info = {}
@@ -98,6 +131,7 @@ class DataCrawler:
         info['favorited'] = tweet['favorited'] if 'favorited' in tweet else None
         info['retweeted'] = tweet['retweeted'] if 'retweeted' in tweet else None
         info['lang'] = tweet['lang'] if 'lang' in tweet else None
+        info['extracted'] = tweet['extracted'] if 'extracted' in tweet else True
 
         if 'entities' in tweet:
             if 'hashtags' in tweet['entities']:
@@ -202,19 +236,36 @@ class DataCrawler:
 
     def getURLResponse(self, url):
         try:
-            connect_timeout, read_timeout = 5.0, 30.0
+            connect_timeout, read_timeout = 5.0, 10.0
             response = requests.head(url, timeout=(connect_timeout, read_timeout), allow_redirects=True)
             return response
 
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as err:
             self.logger.error("Connection Error: %s", url)
+            if err.request != None:
+                last_url = err.request.url
+                if last_url != None:
+                    return last_url
             return None
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as err:
             self.logger.error("Connection Timeout: %s", url)
+            if err.request != None:
+                last_url = err.request.url
+                if last_url != None:
+                    return last_url
             return None
-        except requests.exceptions.TooManyRedirects:
+
+        except requests.exceptions.TooManyRedirects as err:
             self.logger.error("TooManyRedirects - Exceeded 30 redirects: %s", url)
             return self.traceRedirections(url, 0)
+        except requests.exceptions.InvalidSchema as err:
+            self.logger.error("Invalid Schema: %s", url)
+            if err.request != None:
+                last_url = err.request.url
+                if last_url != None:
+                    return last_url
+            return None
+
 
     def traceRedirections(self, url, count):
         try:
@@ -250,11 +301,26 @@ class DataCrawler:
                     #print(str(count) + " " + str(response.status_code) + " Seems like the Final thing: " + url + "\n")
                 return response
 
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as err:
             self.logger.error("Connection Error", url)
+            if err.request != None:
+                last_url = err.request.url
+                if last_url != None:
+                    return last_url
             return None
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as err:
             self.logger.error("Connection Timeout", url)
+            if err.request != None:
+                last_url = err.request.url
+                if last_url != None:
+                    return last_url
+            return None
+        except requests.exceptions.InvalidSchema as err:
+            self.logger.error("Invalid Schema: %s", url)
+            if err.request != None:
+                last_url = err.request.url
+                if last_url != None:
+                    return last_url
             return None
 
     def getURLInformation(self, entry):
@@ -266,7 +332,7 @@ class DataCrawler:
 
         response = self.getURLResponse(url)
 
-        if response != None:
+        if response != None and isinstance(response, requests.Response):
             info['resolved_url'] = response.url
             info['response_code'] = response.status_code
             info['domain'] = self.getDomain(response.url)
@@ -298,13 +364,21 @@ class DataCrawler:
             info['is_processed'] = True
         else:
             info['failed'] = True
-            info['resolved_url'] = None
+            if isinstance(response, str):
+                info['resolved_url'] = response
+            else:
+                info['resolved_url'] = info['short_url']
             info['response_code'] = None
-            info['domain'] = None
+            info['domain'] = self.getDomain(info['resolved_url'] )
             info['top_level_domain'] = None
-            info['is_twitter_url'] = None
+            info['top_level_domain'] = get_tld(info['resolved_url'], fail_silently=True)
+
+            if info['top_level_domain'] == "twitter.com":
+                info['is_twitter_url'] = True
+            else:
+                info['is_twitter_url'] = False
             info['is_media'] = None
-            info['is_processed'] = False
+            info['is_processed'] = True
 
         return info
 
@@ -378,17 +452,23 @@ class DataCrawler:
             if soup.find_all('a'):
                 try:
                     response = self.getURLResponse(soup.a.get("href"))
-                    if response != None:
+                    if response != None and isinstance(response, requests.Response):
                         url = response.url
                         icard_info["url"] = url
                         icard_info["response_code"] = response.status_code
                         icard_info['domain'] = self.getDomain(icard_info["url"])
                         icard_info['top_level_domain'] = get_tld(icard_info["url"], fail_silently=True)
                     else:
-                        icard_info["response_code"] = None
-                        icard_info["url"] = None
-                        icard_info['domain'] = None
-                        icard_info['top_level_domain'] = None
+                        if isinstance(response, str):
+                            icard_info["url"] = response
+                            icard_info["response_code"] = None
+                            icard_info['domain'] = self.getDomain(icard_info["url"])
+                            icard_info['top_level_domain'] = get_tld(icard_info["url"], fail_silently=True)
+                        else:
+                            icard_info["response_code"] = None
+                            icard_info["url"] = None
+                            icard_info['domain'] = None
+                            icard_info['top_level_domain'] = None
                 except:
                     icard_info["response_code"] = None
                     icard_info['domain'] = None
@@ -441,3 +521,4 @@ class DataCrawler:
         # Print New Line on Complete
         if iteration == total:
             print()
+
