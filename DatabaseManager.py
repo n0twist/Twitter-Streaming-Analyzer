@@ -24,6 +24,8 @@ class DatabaseManager:
             self.createICardTablePostgreSQL()
             self.createPlaceTablePostgreSQL()
             self.createUserURLTablePostgreSQL()
+            self.createHashtagTablePostgreSQL()
+            self.createUserMentionTablePostgreSQL()
 
     def __del__(self):
         self.db_info_connection.close()
@@ -571,6 +573,70 @@ class DatabaseManager:
 
         c = conn.cursor()
         c.execute(create_table_str)
+        conn.commit()
+        c.close()
+
+    def createHashtagTablePostgreSQL(self):
+        conn = self.db_info_connection
+
+        create_table_str = """CREATE TABLE IF NOT EXISTS tweets_hashtags ( 
+                                tweet_id bigint,
+                                hashtag text,
+                                PRIMARY KEY(tweet_id, hashtag));"""
+        c = conn.cursor()
+        c.execute(create_table_str)
+        conn.commit()
+        c.close()
+
+    def insertHashtagRow(self, tweet):
+        if self.db_selection == 2:
+            self.insertHashtagRowPostgreSQL(tweet)
+
+    def insertHashtagRowPostgreSQL(self, tweet):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        for hashtag in tweet['hashtags'].split(" "):
+            ins_row_sql = """INSERT INTO tweets_hashtags( 
+                                tweet_id,
+                                hashtag)
+                                    VALUES ( %s, %s)
+                                    ON CONFLICT (tweet_id, hashtag) DO NOTHING"""
+            values = (tweet['id'], hashtag)
+            c.execute(ins_row_sql, values)
+
+        conn.commit()
+        c.close()
+
+    def createUserMentionTablePostgreSQL(self):
+        conn = self.db_info_connection
+
+        create_table_str = """CREATE TABLE IF NOT EXISTS user_mentions ( 
+                                tweet_id bigint,
+                                user_id bigint,
+                                PRIMARY KEY(tweet_id, user_id));"""
+        c = conn.cursor()
+        c.execute(create_table_str)
+        conn.commit()
+        c.close()
+
+    def insertUserMentionRow(self, tweet):
+        if self.db_selection == 2:
+            self.insertUserMentionRowPostgreSQL(tweet)
+
+    def insertUserMentionRowPostgreSQL(self, tweet):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        for user_mention in tweet['user_mentions'].split(" "):
+            ins_row_sql = """INSERT INTO user_mentions( 
+                                tweet_id,
+                                user_id)
+                                    VALUES ( %s, %s)
+                                    ON CONFLICT (tweet_id, user_id) DO NOTHING"""
+            values = (tweet['id'], user_mention)
+            c.execute(ins_row_sql, values)
+
         conn.commit()
         c.close()
 
