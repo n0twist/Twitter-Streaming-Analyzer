@@ -456,7 +456,7 @@ class DataCrawler:
             if not os.path.exists(media_path):
                 os.makedirs(media_path)
 
-            img.save(path, quality=100)
+            #img.save(path, quality=100)
             media_info['path'] = path
         else:
             media_info["hash"] = None
@@ -490,6 +490,8 @@ class DataCrawler:
                 image = {}
                 image['user_id'] = user['id']
                 image['url'] = tweet['user']['profile_background_image_url']
+                if image['url'] == "":
+                    print("What Happend here?")
                 image['type'] = "bg"
 
                 img_list.append(image)
@@ -517,14 +519,19 @@ class DataCrawler:
     def getUserImageInformation(self, media_tuple, media_path):
         media_info = {}
         media_info['user_id'] = media_tuple[0]
-        media_info['media_url'] = media_tuple[1]
+        media_info['url'] = media_tuple[1]
         media_info['type'] = media_tuple[2]
 
-        downloaded_media = self.download_media(media_info['media_url'], media_path)
+        if media_info['url'] != "":
+            downloaded_media = self.download_media(media_info['url'], media_path)
 
-        media_info["hash"] = downloaded_media["hash"]
-        media_info['path'] = downloaded_media["path"]
-        media_info['response_code'] = downloaded_media["response_code"]
+            media_info["hash"] = downloaded_media["hash"]
+            media_info['path'] = downloaded_media["path"]
+            media_info['response_code'] = downloaded_media["response_code"]
+        else:
+            media_info["hash"] = None
+            media_info['path'] = None
+            media_info['response_code'] = None
 
         media_info["is_processed"] = True
 

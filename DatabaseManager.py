@@ -839,6 +839,8 @@ class DatabaseManager:
             return "ON CONFLICT (tweet_id)"
         if table_name == "user_urls":
             return "ON CONFLICT (tweet_id, short_url)"
+        if table_name == "user_images":
+            return "ON CONFLICT (user_id, type)"
 
     def insertRowSQLite(self, tweet, table_name):
         conn = self.db_info_connection

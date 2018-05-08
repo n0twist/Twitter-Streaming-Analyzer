@@ -19,7 +19,7 @@ def processUserURLTable(entry):
 
 def processUserImagesTable(entry):
     url_info = dc.getUserImageInformation(entry, media_folder)
-    dm.updateUserURLEntry(url_info)
+    dm.updateUserImageEntry(url_info)
 
 def processMediaTable(entry):
     media_info = dc.getMediaInformation(entry, media_folder)
@@ -134,7 +134,7 @@ if table == 5:
     num_entries = len(entries)
     logger.info("Number of User Images to process: %s", len(entries))
 
-    with Pool(processes=50) as pool:
+    with Pool(processes=25) as pool:
         for entry in entries:
             pool.apply_async(processUserImagesTable, args=(entry,), callback=updateProgress)
 
