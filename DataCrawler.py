@@ -68,6 +68,14 @@ class DataCrawler:
         user['geo_enabled'] = tweet['user']['geo_enabled'] if 'geo_enabled' in tweet['user'] else None
         user['lang'] = tweet['user']['lang'] if 'lang' in tweet['user'] else None
 
+        user['contributors_enabled'] = tweet['user']['contributors_enabled'] if 'contributors_enabled' in tweet['user'] else None
+        user['profile_background_image_url'] = tweet['user']['profile_background_image_url'] if 'profile_background_image_url' in tweet['user'] else None
+        user['profile_use_background_image'] = tweet['user'][
+            'profile_use_background_image'] if 'profile_use_background_image' in tweet['user'] else None
+        user['profile_image_url'] = tweet['user']['profile_image_url'] if 'profile_image_url' in tweet['user'] else None
+        user['profile_banner_url'] = tweet['user']['profile_banner_url'] if 'profile_banner_url' in tweet['user'] else None
+        user['default_profile'] = tweet['user']['default_profile'] if 'default_profile' in tweet['user'] else None
+        user['default_profile_image'] = tweet['user']['default_profile_image'] if 'default_profile_image' in tweet['user'] else None
 
         return user
 
@@ -153,7 +161,10 @@ class DataCrawler:
                 user_mentions = []
                 for user_mention in tweet['entities']['user_mentions']:
                     if 'id_str' in user_mention:
-                        user_mentions.append(user_mention['id_str'])
+                        if user_mention['id_str'] == None:
+                            user_mentions.append(str(0))
+                        else:
+                            user_mentions.append(user_mention['id_str'])
 
                 if not user_mentions:
                     info['user_mentions'] = None
@@ -171,6 +182,56 @@ class DataCrawler:
             else:
                 info['number_of_urls'] = 0
 
+        if 'coordinates' in tweet:
+            if tweet['coordinates'] is not None:
+                info['coordinates_type'] = tweet['coordinates']['type'] if 'type' in tweet['coordinates'] else True
+                if info['coordinates_type'] == 'Point':
+                    if 'coordinates' in tweet['coordinates']:
+                        coordinates = tweet['coordinates']['coordinates']
+                        if len(coordinates) == 2:
+                            info['coordinates_long'] = coordinates[0]
+                            info['coordinates_lat'] = coordinates[1]
+                        else:
+                            info['coordinates_long'] = None
+                            info['coordinates_lat'] = None
+                    else:
+                        info['coordinates_long'] = None
+                        info['coordinates_lat'] = None
+                else:
+                    info['coordinates_long'] = None
+                    info['coordinates_lat'] = None
+            else:
+                info['coordinates_type'] = None
+                info['coordinates_long'] = None
+                info['coordinates_lat'] = None
+        else:
+            info['coordinates_type'] = None
+            info['coordinates_long'] = None
+            info['coordinates_lat'] = None
+
+        return info
+
+    def getUserMentions(self, tweet):
+        info = {}
+        info['tweet_id'] = tweet['id']
+        if 'entities' in tweet:
+            if 'user_mentions' in tweet['entities']:
+                user_mentions_list = []
+                for user_mention in tweet['entities']['user_mentions']:
+                    if 'id' in user_mention:
+                        user = {}
+
+                        user['id'] = user_mention['id'] if user_mention['id'] is not None else 0
+                        user['screen_name'] = user_mention['screen_name']
+                        user['name'] = user_mention['name']
+                        user_mentions_list.append(user)
+
+                if not user_mentions_list:
+                    info['user_mentions_list'] = None
+                else:
+                    info['user_mentions_list'] = user_mentions_list
+            else:
+                info['user_mentions_list'] = None
         return info
 
     def resolveTruncated(self, tweet):
@@ -406,6 +467,56 @@ class DataCrawler:
     def getMediaInformation(self, media_tuple, media_path):
         media_info = {}
         media_info['tweet_id'] = media_tuple[0]
+        media_info['media_url'] = media_tuple[1]
+        media_info['type'] = media_tuple[2]
+
+        downloaded_media = self.download_media(media_info['media_url'], media_path)
+
+        media_info["hash"] = downloaded_media["hash"]
+        media_info['path'] = downloaded_media["path"]
+        media_info['response_code'] = downloaded_media["response_code"]
+
+        media_info["is_processed"] = True
+
+        return media_info
+
+    def getUserImages(self, tweet):
+        user = {}
+
+        user['id'] = tweet['user']['id'] if 'id' in tweet['user'] else None
+        img_list = []
+        if 'profile_background_image_url' in tweet['user']:
+            if tweet['user']['profile_background_image_url'] != None:
+                image = {}
+                image['user_id'] = user['id']
+                image['url'] = tweet['user']['profile_background_image_url']
+                image['type'] = "bg"
+
+                img_list.append(image)
+
+        if 'profile_image_url' in tweet['user']:
+            if tweet['user']['profile_image_url'] != None:
+                image = {}
+                image['user_id'] = user['id']
+                image['url'] = tweet['user']['profile_image_url']
+                image['type'] = "profile"
+
+                img_list.append(image)
+
+        if 'profile_banner_url' in tweet['user']:
+            if tweet['user']['profile_banner_url'] != None:
+                image = {}
+                image['user_id'] = user['id']
+                image['url'] = tweet['user']['profile_banner_url']
+                image['type'] = "banner"
+
+                img_list.append(image)
+
+        return img_list
+
+    def getUserImageInformation(self, media_tuple, media_path):
+        media_info = {}
+        media_info['user_id'] = media_tuple[0]
         media_info['media_url'] = media_tuple[1]
         media_info['type'] = media_tuple[2]
 

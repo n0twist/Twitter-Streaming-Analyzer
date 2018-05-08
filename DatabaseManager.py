@@ -26,6 +26,7 @@ class DatabaseManager:
             self.createUserURLTablePostgreSQL()
             self.createHashtagTablePostgreSQL()
             self.createUserMentionTablePostgreSQL()
+            self.createUserImageTablePostgreSQL()
 
     def __del__(self):
         self.db_info_connection.close()
@@ -99,6 +100,9 @@ class DatabaseManager:
                                        user_mentions text,
                                        number_of_urls integer,
                                        extracted boolean,
+                                       coordinates_type text,
+                                       coordinates_long float8,
+                                       coordinates_lat float8,
                                        PRIMARY KEY(id));"""
 
         c = conn.cursor()
@@ -448,6 +452,49 @@ class DatabaseManager:
 
         c.close()
 
+    def createUserImageTablePostgreSQL(self):
+        conn = self.db_info_connection
+
+        create_table_str = """CREATE TABLE IF NOT EXISTS user_images ( 
+                                user_id bigint,
+                                url text,
+                                type text,
+                                response_code integer,
+                                hash text,
+                                path text,
+                                is_processed boolean,
+                                PRIMARY KEY(user_id, type));"""
+
+        c = conn.cursor()
+        c.execute(create_table_str)
+        conn.commit()
+        c.close()
+
+    def insertUserImageRow(self, img_list):
+        if self.db_selection == 2:
+            self.insertUserImageRowPostgreSQL(img_list)
+
+    def insertUserImageRowPostgreSQL(self, img_list):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        for image in img_list:
+            ins_row_sql = """INSERT INTO user_images( 
+                                user_id,
+                                url,
+                                type,
+                                response_code,
+                                hash,
+                                path,
+                                is_processed)
+                                    VALUES ( %s, %s, %s, %s, %s, %s, %s)
+                                    ON CONFLICT (user_id, type) DO NOTHING"""
+            values = (image['user_id'], image['url'], image['type'], None, None, None, False)
+            c.execute(ins_row_sql, values)
+            conn.commit()
+
+        c.close()
+
     def createICardTablePostgreSQL(self):
         conn = self.db_info_connection
 
@@ -569,6 +616,13 @@ class DatabaseManager:
                                 created_at text,
                                 geo_enabled boolean,
                                 lang text,
+                                contributors_enabled boolean,
+                                profile_background_image_url text,
+                                profile_use_background_image text,
+                                profile_image_url text,
+                                profile_banner_url text,
+                                default_profile boolean,
+                                default_profile_image boolean,
                                 PRIMARY KEY(id));"""
 
         c = conn.cursor()
@@ -614,7 +668,9 @@ class DatabaseManager:
         create_table_str = """CREATE TABLE IF NOT EXISTS user_mentions ( 
                                 tweet_id bigint,
                                 user_id bigint,
-                                PRIMARY KEY(tweet_id, user_id));"""
+                                name text,
+                                screen_name text,
+                                PRIMARY KEY(tweet_id, user_id, screen_name));"""
         c = conn.cursor()
         c.execute(create_table_str)
         conn.commit()
@@ -624,17 +680,20 @@ class DatabaseManager:
         if self.db_selection == 2:
             self.insertUserMentionRowPostgreSQL(tweet)
 
-    def insertUserMentionRowPostgreSQL(self, tweet):
+    def insertUserMentionRowPostgreSQL(self, users):
         conn = self.db_info_connection
         c = conn.cursor()
 
-        for user_mention in tweet['user_mentions'].split(" "):
+        user_mentions = users['user_mentions_list']
+        for user_mention in user_mentions:
             ins_row_sql = """INSERT INTO user_mentions( 
                                 tweet_id,
-                                user_id)
-                                    VALUES ( %s, %s)
-                                    ON CONFLICT (tweet_id, user_id) DO NOTHING"""
-            values = (tweet['id'], user_mention)
+                                user_id,
+                                name,
+                                screen_name)
+                                    VALUES ( %s, %s, %s, %s)
+                                    ON CONFLICT (tweet_id, user_id, screen_name) DO NOTHING"""
+            values = (users['tweet_id'], user_mention['id'], user_mention['name'], user_mention['screen_name'])
             c.execute(ins_row_sql, values)
 
         conn.commit()
@@ -879,6 +938,23 @@ class DatabaseManager:
         if self.db_selection == 2:
             self.insertRowPostgreSQL(url_info, "user_urls")
 
+    def getUserImageEntries(self):
+        if self.db_selection == 2:
+            return self.getUserImageEntriesPostgreSQL()
+
+    def getUserImageEntriesPostgreSQL(self):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        c.execute("SELECT user_id, url, type FROM user_images WHERE is_processed is false ")
+
+        entries = c.fetchall()
+
+        return entries
+
+    def updateUserImageEntry(self, media_info):
+        if self.db_selection == 2:
+            self.insertRowPostgreSQL(media_info, "user_images")
 
     def getMediaEntries(self):
         if self.db_selection == 1:

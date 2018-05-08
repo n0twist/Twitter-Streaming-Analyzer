@@ -17,6 +17,10 @@ def processUserURLTable(entry):
     url_info = dc.getURLInformation(entry)
     dm.updateUserURLEntry(url_info)
 
+def processUserImagesTable(entry):
+    url_info = dc.getUserImageInformation(entry, media_folder)
+    dm.updateUserURLEntry(url_info)
+
 def processMediaTable(entry):
     media_info = dc.getMediaInformation(entry, media_folder)
     dm.updateMediaEntry(media_info)
@@ -55,7 +59,7 @@ dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name, databas
 if database_selection == 2:
     media_folder = "PostgreSQL/media/"
 
-table = input("(1) url\n(2) media\n(3) icard\n(4) user url\n\nselect a table to process (default: 1):")
+table = input("(1) url\n(2) media\n(3) icard\n(4) user url\n(5) user images\n\nselect a table to process (default: 1):")
 if table == None: table = 1;
 else:
     if table == "":
@@ -119,6 +123,20 @@ if table == 4:
     with Pool(processes=50) as pool:
         for entry in entries:
             pool.apply_async(processUserURLTable, args=(entry,), callback=updateProgress)
+
+        pool.close()
+        pool.join()
+
+if table == 5:
+    s_time = time.time()
+    worked = 0
+    entries = dm.getUserImageEntries()
+    num_entries = len(entries)
+    logger.info("Number of User Images to process: %s", len(entries))
+
+    with Pool(processes=50) as pool:
+        for entry in entries:
+            pool.apply_async(processUserImagesTable, args=(entry,), callback=updateProgress)
 
         pool.close()
         pool.join()
