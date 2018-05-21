@@ -935,7 +935,7 @@ class DatabaseManager:
         if self.db_selection == 1:
             c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is 0 ")
         if self.db_selection == 2:
-            c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is false LIMIT 1000")
+            c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is false LIMIT 10000")
 
         entries = c.fetchall()
 
