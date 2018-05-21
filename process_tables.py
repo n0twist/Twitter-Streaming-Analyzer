@@ -1,8 +1,11 @@
 import DatabaseManager, DataCrawler
 import logging
 import time
+import ProcessingTableTask
 from multiprocessing import Pool
 i=0
+urls = []
+
 
 def updateProgress(somevalue):
     global worked
@@ -10,133 +13,236 @@ def updateProgress(somevalue):
     dc.printProgressBar(worked, len(entries), s_time)
 
 def processURLTable(entry):
-    url_info = dc.getURLInformation(entry)
-    dm.updateURLEntry(url_info)
+    return dc.getURLInformation(entry)
 
 def processUserURLTable(entry):
-    url_info = dc.getURLInformation(entry)
-    dm.updateUserURLEntry(url_info)
+    return dc.getURLInformation(entry)
 
 def processUserImagesTable(entry):
-    url_info = dc.getUserImageInformation(entry, media_folder)
-    dm.updateUserImageEntry(url_info)
+    return dc.getUserImageInformation(entry, media_folder)
 
 def processMediaTable(entry):
-    media_info = dc.getMediaInformation(entry, media_folder)
-    dm.updateMediaEntry(media_info)
+    return dc.getMediaInformation(entry, media_folder)
 
 def processICardsTable(entry):
-    icard_info = dc.getICardInformation(entry, media_folder)
-    dm.updateICardEntry(icard_info)
+    return dc.getICardInformation(entry, media_folder)
 
 
-logging.basicConfig(level=logging.INFO)
-# create logger with 'spam_application'
-logger = logging.getLogger('twitter_app')
-logger.setLevel(logging.INFO)
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    # create logger with 'spam_application'
+    logger = logging.getLogger('twitter_app')
+    logger.setLevel(logging.INFO)
 
-database_selection = input("(1)SQLite\n(2)PostgreSQL\n\nSelect a Database(Default: 1):")
-if database_selection == "":
-    database_selection = 1
-else:
-    database_selection = int(database_selection)
+    urls = []
 
-tweets_data_path = "data/"
-tweets_file_name = "twitter_data_sampled"
-tweets_file_name_original = tweets_file_name
+    database_selection = input("(1)SQLite\n(2)PostgreSQL\n\nSelect a Database(Default: 1):")
+    if database_selection == "":
+        database_selection = 1
+    else:
+        database_selection = int(database_selection)
 
-if database_selection == 1:
-    tweets_file_name = input("Enter name of database(Default: '%s'):" %(tweets_file_name))
+    tweets_data_path = "data/"
+    tweets_file_name = "twitter_data_sampled"
+    tweets_file_name_original = tweets_file_name
 
-if tweets_file_name == "":
-    tweets_file_name = tweets_file_name_original
+    if database_selection == 1:
+        tweets_file_name = input("Enter name of database(Default: '%s'):" %(tweets_file_name))
 
-media_folder = tweets_data_path + tweets_file_name + "/media/"
+    if tweets_file_name == "":
+        tweets_file_name = tweets_file_name_original
 
-dc = DataCrawler.DataCrawler()
-dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name, database_selection)
+    media_folder = tweets_data_path + tweets_file_name + "/media/"
 
-if database_selection == 2:
-    media_folder = "PostgreSQL/media/"
+    dc = DataCrawler.DataCrawler()
+    dm = DatabaseManager.DatabaseManager(tweets_data_path, tweets_file_name, database_selection)
 
-table = input("(1) url\n(2) media\n(3) icard\n(4) user url\n(5) user images\n\nselect a table to process (default: 1):")
-if table == None: table = 1;
-else:
-    if table == "":
-        table = 1
-    table = int(table)
+    if database_selection == 2:
+        media_folder = "PostgreSQL/media/"
 
-#if table != 1 or table != 2 or table != 3
+    table = input("(1) url\n(2) media\n(3) icard\n(4) user url\n(5) user images\n\nselect a table to process (default: 1):")
+    if table == None: table = 1;
+    else:
+        if table == "":
+            table = 1
+        table = int(table)
+
+    #if table != 1 or table != 2 or table != 3
 
 
 
-if table == 1:
-    s_time = time.time()
-    worked = 0
-    entries = dm.getURLEntriesToProcess()
-    num_entries = len(entries)
-    logger.info("Number of URLs to process: %s", len(entries))
+    if table == 1:
+        s_time = time.time()
+        worked = 0
+        entries = dm.getURLEntriesToProcess()
+        num_entries = len(entries)
+        logger.info("Number of URLs to process: %s", len(entries))
+        url_list = []
 
-    with Pool(processes=50) as pool:
-        for entry in entries:
-            pool.apply_async(processURLTable, args=(entry,), callback=updateProgress)
+        while num_entries > 0:
+            with Pool(processes=20) as pool:
+                for entry in entries:
+                    res = pool.apply_async(processURLTable, args=(entry,), callback=updateProgress)
+                    url_list.append(res)
 
-        pool.close()
-        pool.join()
+                pool.close()
+                pool.join()
+                print("Updating Table ....")
+                t1 = time.time()
+                update_urls = []
+                for url in url_list:
+                    update_urls.append(url.get())
 
-if table == 2:
+                dm.insertMultipleRowPostgreSQL(update_urls, "tweets_urls")
+                t2 = time.time()
+                print("Done in %0.2f s" %(t2-t1))
 
-    s_time = time.time()
-    worked = 0
-    entries = dm.getMediaEntriesPostgreSQL()
-    num_entries = len(entries)
-    logger.info("Number of Media Entries to process: %s", len(entries))
+                worked = 0
+                print("Getting Remaining URLs ...")
+                t1 = time.time()
+                entries = dm.getURLEntriesToProcess()
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
+                num_entries = len(entries)
+                logger.info("Number of URLs to process: %s", len(entries))
 
-    with Pool(processes=50) as pool:
-        for entry in entries:
-            pool.apply_async(processMediaTable, args=(entry,), callback=updateProgress)
+    if table == 2:
 
-        pool.close()
-        pool.join()
+        s_time = time.time()
+        worked = 0
+        entries = dm.getMediaEntriesPostgreSQL()
+        num_entries = len(entries)
+        logger.info("Number of Media Entries to process: %s", len(entries))
+        media_list = []
 
-if table == 3:
-    s_time = time.time()
-    worked = 0
-    entries = dm.getICardEntriesPostreSQL()
-    num_entries = len(entries)
-    logger.info("Number of ICard Entries to process: %s", len(entries))
+        while num_entries > 0:
+            with Pool(processes=20) as pool:
+                for entry in entries:
+                    res = pool.apply_async(processMediaTable, args=(entry,), callback=updateProgress)
+                    media_list.append(res)
+                pool.close()
+                pool.join()
 
-    with Pool(processes=10) as pool:
-        for entry in entries:
-            pool.apply_async(processICardsTable, args=(entry,), callback=updateProgress)
+                print("Updating Table ....")
+                t1 = time.time()
+                update_media = []
+                for media in media_list:
+                    update_media.append(media.get())
 
-        pool.close()
-        pool.join()
+                dm.insertMultipleRowPostgreSQL(update_media, "tweets_media")
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
 
-if table == 4:
-    s_time = time.time()
-    worked = 0
-    entries = dm.getUserURLEntriesToProcess()
-    num_entries = len(entries)
-    logger.info("Number of User URLs to process: %s", len(entries))
+                worked = 0
+                print("Getting Remaining URLs ...")
+                t1 = time.time()
+                entries = dm.getMediaEntriesPostgreSQL()
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
+                num_entries = len(entries)
+                logger.info("Number of Media entries to process: %s", len(entries))
 
-    with Pool(processes=50) as pool:
-        for entry in entries:
-            pool.apply_async(processUserURLTable, args=(entry,), callback=updateProgress)
+    if table == 3:
+        s_time = time.time()
+        worked = 0
+        entries = dm.getICardEntriesPostreSQL()
+        num_entries = len(entries)
+        logger.info("Number of ICard Entries to process: %s", len(entries))
+        url_list = []
 
-        pool.close()
-        pool.join()
+        while num_entries > 0:
+            with Pool(processes=20) as pool:
+                for entry in entries:
+                    res = pool.apply_async(processICardsTable, args=(entry,), callback=updateProgress)
+                    url_list.append(res)
+                pool.close()
+                pool.join()
 
-if table == 5:
-    s_time = time.time()
-    worked = 0
-    entries = dm.getUserImageEntries()
-    num_entries = len(entries)
-    logger.info("Number of User Images to process: %s", len(entries))
+                print("Updating Table ....")
+                t1 = time.time()
+                update_urls = []
+                for url in url_list:
+                    update_urls.append(url.get())
 
-    with Pool(processes=25) as pool:
-        for entry in entries:
-            pool.apply_async(processUserImagesTable, args=(entry,), callback=updateProgress)
+                dm.insertMultipleRowPostgreSQL(update_urls, "tweets_icards")
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
 
-        pool.close()
-        pool.join()
+                worked = 0
+                print("Getting Remaining URLs ...")
+                t1 = time.time()
+                entries = dm.getICardEntriesPostreSQL()
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
+                num_entries = len(entries)
+                logger.info("Number of ICard Entries to process: %s", len(entries))
+
+    if table == 4:
+        s_time = time.time()
+        worked = 0
+        entries = dm.getUserURLEntriesToProcess()
+        num_entries = len(entries)
+        logger.info("Number of User URLs to process: %s", len(entries))
+        url_list = []
+
+        while num_entries > 0:
+            with Pool(processes=20) as pool:
+                for entry in entries:
+                    res = pool.apply_async(processUserURLTable, args=(entry,), callback=updateProgress)
+                    url_list.append(res)
+                pool.close()
+                pool.join()
+
+                print("Updating Table ....")
+                t1 = time.time()
+                update_urls = []
+                for url in url_list:
+                    update_urls.append(url.get())
+
+                dm.insertMultipleRowPostgreSQL(update_urls, "user_urls")
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
+
+                worked = 0
+                print("Getting Remaining URLs ...")
+                t1 = time.time()
+                entries = dm.getUserURLEntriesToProcess()
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
+                num_entries = len(entries)
+                logger.info("Number of User URLs to process: %s", len(entries))
+
+    if table == 5:
+        s_time = time.time()
+        worked = 0
+        entries = dm.getUserImageEntries()
+        num_entries = len(entries)
+        logger.info("Number of User Images to process: %s", len(entries))
+        url_list = []
+
+        while num_entries > 0:
+            with Pool(processes=20) as pool:
+                for entry in entries:
+                    res = pool.apply_async(processUserImagesTable, args=(entry,), callback=updateProgress)
+                    url_list.append(res)
+                pool.close()
+                pool.join()
+
+                print("Updating Table ....")
+                t1 = time.time()
+                update_urls = []
+                for url in url_list:
+                    update_urls.append(url.get())
+
+                dm.insertMultipleRowPostgreSQL(update_urls, "user_images")
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
+
+                worked = 0
+                print("Getting Remaining URLs ...")
+                t1 = time.time()
+                entries = dm.getUserImageEntries()
+                t2 = time.time()
+                print("Done in %0.2f s" % (t2 - t1))
+                num_entries = len(entries)
+                logger.info("Number of User Images to process: %s", len(entries))

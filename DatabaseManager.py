@@ -824,6 +824,60 @@ class DatabaseManager:
         conn.commit()
         c.close()
 
+    def insertMultipleRowPostgreSQL(self, rows, table_name):
+        conn = self.db_info_connection
+        c = conn.cursor()
+
+        ins_row_sql = "INSERT INTO %s( " % table_name
+        key_str = ""
+        value_str = ""
+
+        for key in rows[0].keys():
+
+            if rows[0][key] == "nan" or rows[0][key] == "NaN":
+                rows[0][key] = None
+
+            if key != "id" and (type(rows[0][key]) != bool and None):
+                rows[0][key] = str(rows[0][key])
+
+            if isinstance(rows[0][key], list):
+                rows[0][key] = str(rows[0][key])
+
+            key_str += " " + key
+            value_str += " %s"
+
+        key_str = key_str[1:].replace(" ", ", ")
+        value_str = value_str[1:].replace(" ", ", ")
+
+        ins_row_sql += key_str + ") VALUES"
+        values_per_row = ", ".join(len(rows) * ["("+ value_str + ")"])
+        ins_row_sql += values_per_row
+
+        key_set = ", ".join(rows[0].keys())
+        key_set_exluded = []
+        for key in rows[0].keys():
+            key_set_exluded.append("EXCLUDED.%s" % key)
+
+        value_replacement_keys = ", ".join(key_set_exluded)
+
+        conflict_bit = self.getConflictClausePostreSQL(table_name) + " DO UPDATE set (%s) = (%s);" % (
+        key_set, value_replacement_keys)
+        ins_row_sql += conflict_bit
+
+        value_list = []
+        for row in rows:
+            for key in rows[0].keys():
+                value_list.append(row.get(key))
+            #for value in row.values():
+                #value_list.append(value)
+
+        values = tuple(value_list)
+
+        c.execute(ins_row_sql, values)
+
+        conn.commit()
+        c.close()
+
     def getConflictClausePostreSQL(self, table_name):
         if table_name == "tweets_urls":
             return "ON CONFLICT (tweet_id, short_url)"
@@ -881,7 +935,7 @@ class DatabaseManager:
         if self.db_selection == 1:
             c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is 0 ")
         if self.db_selection == 2:
-            c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is false ")
+            c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is false LIMIT 1000")
 
         entries = c.fetchall()
 
@@ -929,7 +983,7 @@ class DatabaseManager:
         c = conn.cursor()
 
         if self.db_selection == 2:
-            c.execute("SELECT tweet_id, short_url FROM user_urls WHERE is_processed is false ")
+            c.execute("SELECT tweet_id, short_url FROM user_urls WHERE is_processed is false LIMIT 10000")
             entries = c.fetchall()
 
             return entries
@@ -948,7 +1002,7 @@ class DatabaseManager:
         conn = self.db_info_connection
         c = conn.cursor()
 
-        c.execute("SELECT user_id, url, type FROM user_images WHERE is_processed is false ")
+        c.execute("SELECT user_id, url, type FROM user_images WHERE is_processed is false LIMIT 10000")
 
         entries = c.fetchall()
 
@@ -978,7 +1032,7 @@ class DatabaseManager:
         conn = self.db_info_connection
         c = conn.cursor()
 
-        c.execute("SELECT tweet_id, media_url, type FROM tweets_media WHERE is_processed is false ")
+        c.execute("SELECT tweet_id, media_url, type FROM tweets_media WHERE is_processed is false LIMIT 10000")
 
         entries = c.fetchall()
 
@@ -1035,7 +1089,7 @@ class DatabaseManager:
         conn = self.db_info_connection
         c = conn.cursor()
 
-        c.execute("SELECT tweet_id FROM tweets_icards WHERE is_processed is false;")
+        c.execute("SELECT tweet_id FROM tweets_icards WHERE is_processed is false LIMIT 10000;")
 
         entries = c.fetchall()
 

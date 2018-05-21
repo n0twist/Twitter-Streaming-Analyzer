@@ -468,7 +468,7 @@ class DataCrawler:
         media_info = {}
         media_info['tweet_id'] = media_tuple[0]
         media_info['media_url'] = media_tuple[1]
-        media_info['type'] = media_tuple[2]
+        media_info['type'] = media_tuple[2] if len(media_tuple) > 2 else None
 
         downloaded_media = self.download_media(media_info['media_url'], media_path)
 
@@ -624,7 +624,7 @@ class DataCrawler:
         @params:
             iteration   - Required  : current iteration (Int)
             total       - Required  : total iterations (Int)
-            prefix      - Optional  : prefix string (Str)
+            prefix      - Optional  : pregetUserURLEntriesToProcessfix string (Str)
             suffix      - Optional  : suffix string (Str)
             decimals    - Optional  : positive number of decimals in percent complete (Int)
             length      - Optional  : character length of bar (Int)
