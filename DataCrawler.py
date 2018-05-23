@@ -1,3 +1,4 @@
+import socket
 import time
 import requests
 import re
@@ -10,7 +11,12 @@ from PIL import Image
 from io import BytesIO
 import os
 from bs4 import BeautifulSoup
-
+from lxml.html import fromstring
+import requests
+from itertools import cycle
+import traceback
+import asyncio
+from proxybroker import Broker
 
 module_logger = logging.getLogger('twitter_app.dataprocessor')
 
@@ -18,6 +24,38 @@ class DataCrawler:
 
     def __init__(self):
         self.logger = logging.getLogger('twitter_app.datcrawler.DataCrawler')
+        self.proxies = self.getProxies()
+        self.proxy_pool = cycle(self.proxies)
+        self.proxy = next(self.proxy_pool)
+
+    def refreshProxies(self):
+        self.proxy_pool = cycle(self.proxies)
+        if len(self.proxies) < 10:
+            self.proxies = self.getProxies()
+            self.proxy_pool = cycle(self.proxies)
+
+    def getProxies(self):
+        proxy_list = []
+        self.logger.info("Getting List of Proxies ...")
+        async def show(proxies):
+            while True:
+                proxy = await proxies.get()
+                if proxy is None: break
+                proxy_list.append(proxy.host + ":" + str(proxy.port))
+
+        proxies = asyncio.Queue()
+        broker = Broker(proxies)
+        tasks = asyncio.gather(
+            broker.find(types=['HTTP', 'HTTPS'], limit=50),
+            show(proxies))
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(tasks)
+        tasks.done()
+        broker.stop()
+        loop.stop()
+        loop.close()
+        return proxy_list
 
     def getTweetMedia(self, tweet):
         media_content = []
@@ -444,25 +482,81 @@ class DataCrawler:
         return info
 
     def download_media(self, url, media_path):
-        response = requests.get(url, verify=False)
-        media_info = {}
-        media_info["response_code"] = response.status_code
-        if response.status_code == 200:
-            img = Image.open(BytesIO(response.content))
-            media_info["hash"] = str(imagehash.dhash(img))
-            unique_file_str = media_info["hash"] + "." + img.format
-            path = os.path.join(media_path, unique_file_str)
+        try:
+            self.proxy = next(self.proxy_pool)
+            connect_timeout, read_timeout = 15.0, 20.0
+            response = requests.get(url, verify=False, timeout=(connect_timeout, read_timeout),
+                                    proxies={"http": self.proxy, "https": self.proxy})
+            #response = requests.get(url, verify=False)
+            media_info = {}
+            media_info["response_code"] = response.status_code
+            if response.status_code == 200:
+                img = Image.open(BytesIO(response.content))
+                media_info["hash"] = str(imagehash.dhash(img))
+                unique_file_str = media_info["hash"] + "." + img.format
+                path = os.path.join(media_path, unique_file_str)
 
-            if not os.path.exists(media_path):
-                os.makedirs(media_path)
+                if not os.path.exists(media_path):
+                    os.makedirs(media_path)
 
-            #img.save(path, quality=100)
-            media_info['path'] = path
-        else:
+                #img.save(path, quality=100)
+                media_info['path'] = path
+            else:
+                media_info["hash"] = None
+                media_info['path'] = None
+
+            return media_info
+        except requests.exceptions.Timeout as err:
+            self.logger.error("Connection Timeout: %s with proxy: %s - Proxies remaining: %s", url, self.proxy, len(self.proxies))
+            self.proxies.remove(self.proxy)
+            self.refreshProxies()
+
+            media_info = {}
+            media_info["response_code"] = None
             media_info["hash"] = None
             media_info['path'] = None
+            media_info['error'] = True
+            return media_info
 
-        return media_info
+        except requests.exceptions.ProxyError as err:
+            self.logger.error("ProxyError: %s with proxy: %s - Proxies remaining: %s", url, self.proxy, len(self.proxies))
+            self.proxies.remove(self.proxy)
+            self.refreshProxies()
+
+            media_info = {}
+            media_info["response_code"] = None
+            media_info["hash"] = None
+            media_info['path'] = None
+            media_info['error'] = True
+            return media_info
+
+        except socket.timeout:
+            self.logger.error("Socket Error: %s with proxy: %s - Proxies remaining: %s", url, self.proxy,
+                              len(self.proxies))
+            self.proxies.remove(self.proxy)
+            self.refreshProxies()
+
+            media_info = {}
+            media_info["response_code"] = None
+            media_info["hash"] = None
+            media_info['path'] = None
+            media_info['error'] = True
+            return media_info
+
+        except requests.exceptions.ConnectionError as err:
+            self.logger.error("Error:%s on url %s with proxy: %s - Proxies remaining: %s", err, url, self.proxy,
+                              len(self.proxies))
+            self.proxies.remove(self.proxy)
+            self.refreshProxies()
+
+            media_info = {}
+            media_info["response_code"] = None
+            media_info["hash"] = None
+            media_info['path'] = None
+            media_info['error'] = True
+            return media_info
+
+
 
     def getMediaInformation(self, media_tuple, media_path):
         media_info = {}
@@ -477,6 +571,8 @@ class DataCrawler:
         media_info['response_code'] = downloaded_media["response_code"]
 
         media_info["is_processed"] = True
+
+        media_info["is_processed"] = False if 'error' in downloaded_media else True
 
         return media_info
 

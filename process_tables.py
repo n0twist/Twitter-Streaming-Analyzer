@@ -76,11 +76,12 @@ if __name__ == '__main__':
         entries = dm.getURLEntriesToProcess()
         num_entries = len(entries)
         logger.info("Number of URLs to process: %s", len(entries))
+        url_list = []
 
         while num_entries > 0:
             s_time = time.time()
-            url_list = []
-            with Pool(processes=20) as pool:
+            del url_list[:]
+            with Pool(processes=15) as pool:
                 for entry in entries:
                     res = pool.apply_async(processURLTable, args=(entry,), callback=updateProgress)
                     url_list.append(res)
@@ -111,11 +112,13 @@ if __name__ == '__main__':
         entries = dm.getMediaEntriesPostgreSQL()
         num_entries = len(entries)
         logger.info("Number of Media Entries to process: %s", len(entries))
+        media_list = []
 
         while num_entries > 0:
+
             s_time = time.time()
-            media_list = []
-            with Pool(processes=20) as pool:
+            del media_list[:]
+            with Pool(processes=15) as pool:
                 for entry in entries:
                     res = pool.apply_async(processMediaTable, args=(entry,), callback=updateProgress)
                     media_list.append(res)
@@ -146,11 +149,12 @@ if __name__ == '__main__':
         entries = dm.getICardEntriesPostreSQL()
         num_entries = len(entries)
         logger.info("Number of ICard Entries to process: %s", len(entries))
+        url_list = []
 
         while num_entries > 0:
             s_time = time.time()
-            url_list = []
-            with Pool(processes=20) as pool:
+            del url_list[:]
+            with Pool(processes=15) as pool:
                 for entry in entries:
                     res = pool.apply_async(processICardsTable, args=(entry,), callback=updateProgress)
                     url_list.append(res)
@@ -181,11 +185,12 @@ if __name__ == '__main__':
         entries = dm.getUserURLEntriesToProcess()
         num_entries = len(entries)
         logger.info("Number of User URLs to process: %s", len(entries))
+        url_list = []
 
         while num_entries > 0:
             s_time = time.time()
-            url_list = []
-            with Pool(processes=20) as pool:
+            del url_list[:]
+            with Pool(processes=15) as pool:
                 for entry in entries:
                     res = pool.apply_async(processUserURLTable, args=(entry,), callback=updateProgress)
                     url_list.append(res)
@@ -216,11 +221,12 @@ if __name__ == '__main__':
         entries = dm.getUserImageEntries()
         num_entries = len(entries)
         logger.info("Number of User Images to process: %s", len(entries))
+        url_list = []
 
         while num_entries > 0:
             s_time = time.time()
-            url_list = []
-            with Pool(processes=20) as pool:
+            del url_list[:]
+            with Pool(processes=15) as pool:
                 for entry in entries:
                     res = pool.apply_async(processUserImagesTable, args=(entry,), callback=updateProgress)
                     url_list.append(res)
@@ -245,3 +251,4 @@ if __name__ == '__main__':
                 print("Done in %0.2f s" % (t2 - t1))
                 num_entries = len(entries)
                 logger.info("Number of User Images to process: %s", len(entries))
+
