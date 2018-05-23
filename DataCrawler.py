@@ -1,6 +1,5 @@
 import socket
 import time
-import requests
 import re
 from urllib.parse import urlparse
 import logging
@@ -8,16 +7,15 @@ import mimetypes
 from tld import get_tld
 import imagehash
 from PIL import Image
+from PIL import ImageFile
 from io import BytesIO
 import os
 from bs4 import BeautifulSoup
 import requests
 from itertools import cycle
-import asyncio
-from proxybroker import Broker
 
 module_logger = logging.getLogger('twitter_app.dataprocessor')
-
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 class DataCrawler:
 
     def __init__(self):
