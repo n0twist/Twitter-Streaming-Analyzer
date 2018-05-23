@@ -11,10 +11,8 @@ from PIL import Image
 from io import BytesIO
 import os
 from bs4 import BeautifulSoup
-from lxml.html import fromstring
 import requests
 from itertools import cycle
-import traceback
 import asyncio
 from proxybroker import Broker
 
@@ -24,38 +22,26 @@ class DataCrawler:
 
     def __init__(self):
         self.logger = logging.getLogger('twitter_app.datcrawler.DataCrawler')
-        self.proxies = self.getProxies()
+
+        self.proxies = self.getProxiesFromFile()
         self.proxy_pool = cycle(self.proxies)
         self.proxy = next(self.proxy_pool)
+
+    def getProxiesFromFile(self):
+        self.logger.info("Getting List of Proxies ...")
+        f = open("proxies.txt", "r")
+
+        proxies = []
+        for line in f.readlines():
+            proxies.append(line.replace("\n", ""))
+
+        return proxies
 
     def refreshProxies(self):
         self.proxy_pool = cycle(self.proxies)
         if len(self.proxies) < 10:
-            self.proxies = self.getProxies()
+            self.proxies = self.getProxiesFromFile()
             self.proxy_pool = cycle(self.proxies)
-
-    def getProxies(self):
-        proxy_list = []
-        self.logger.info("Getting List of Proxies ...")
-        async def show(proxies):
-            while True:
-                proxy = await proxies.get()
-                if proxy is None: break
-                proxy_list.append(proxy.host + ":" + str(proxy.port))
-
-        proxies = asyncio.Queue()
-        broker = Broker(proxies)
-        tasks = asyncio.gather(
-            broker.find(types=['HTTP', 'HTTPS'], limit=50),
-            show(proxies))
-
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(tasks)
-        tasks.done()
-        broker.stop()
-        loop.stop()
-        loop.close()
-        return proxy_list
 
     def getTweetMedia(self, tweet):
         media_content = []
