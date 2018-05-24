@@ -348,7 +348,9 @@ class DataCrawler:
                 if last_url != None:
                     return last_url
             return None
-
+        except requests.packages.urllib3.exceptions.LocationValueError as error:
+            self.logger.error("%s - tried to handle %s", error, url)
+            return None
 
     def traceRedirections(self, url, count):
         try:
