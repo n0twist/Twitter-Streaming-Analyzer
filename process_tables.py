@@ -67,13 +67,19 @@ if __name__ == '__main__':
             table = 1
         table = int(table)
 
-    #if table != 1 or table != 2 or table != 3
+    offset = input("Choose a offset (default: 0):")
+    if offset == None:
+        offset = 0
+    else:
+        if table == "":
+            table = 0
+        offset = int(offset)
 
 
 
     if table == 1:
         worked = 0
-        entries = dm.getURLEntriesToProcess()
+        entries = dm.getURLEntriesToProcess(offset)
         num_entries = len(entries)
         logger.info("Number of URLs to process: %s", len(entries))
         url_list = []
@@ -101,7 +107,7 @@ if __name__ == '__main__':
                 worked = 0
                 print("Getting Remaining URLs ...")
                 t1 = time.time()
-                entries = dm.getURLEntriesToProcess()
+                entries = dm.getURLEntriesToProcess(offset)
                 t2 = time.time()
                 print("Done in %0.2f s" % (t2 - t1))
                 num_entries = len(entries)
@@ -109,7 +115,7 @@ if __name__ == '__main__':
 
     if table == 2:
         worked = 0
-        entries = dm.getMediaEntriesPostgreSQL()
+        entries = dm.getMediaEntriesPostgreSQL(offset)
         num_entries = len(entries)
         logger.info("Number of Media Entries to process: %s", len(entries))
         media_list = []
@@ -138,7 +144,7 @@ if __name__ == '__main__':
                 worked = 0
                 print("Getting Remaining URLs ...")
                 t1 = time.time()
-                entries = dm.getMediaEntriesPostgreSQL()
+                entries = dm.getMediaEntriesPostgreSQL(offset)
                 t2 = time.time()
                 print("Done in %0.2f s" % (t2 - t1))
                 num_entries = len(entries)
@@ -146,7 +152,7 @@ if __name__ == '__main__':
 
     if table == 3:
         worked = 0
-        entries = dm.getICardEntriesPostreSQL()
+        entries = dm.getICardEntriesPostreSQL(offset)
         num_entries = len(entries)
         logger.info("Number of ICard Entries to process: %s", len(entries))
         url_list = []
@@ -174,7 +180,7 @@ if __name__ == '__main__':
                 worked = 0
                 print("Getting Remaining URLs ...")
                 t1 = time.time()
-                entries = dm.getICardEntriesPostreSQL()
+                entries = dm.getICardEntriesPostreSQL(offset)
                 t2 = time.time()
                 print("Done in %0.2f s" % (t2 - t1))
                 num_entries = len(entries)
@@ -182,7 +188,7 @@ if __name__ == '__main__':
 
     if table == 4:
         worked = 0
-        entries = dm.getUserURLEntriesToProcess()
+        entries = dm.getUserURLEntriesToProcess(offset)
         num_entries = len(entries)
         logger.info("Number of User URLs to process: %s", len(entries))
         url_list = []
@@ -210,7 +216,7 @@ if __name__ == '__main__':
                 worked = 0
                 print("Getting Remaining URLs ...")
                 t1 = time.time()
-                entries = dm.getUserURLEntriesToProcess()
+                entries = dm.getUserURLEntriesToProcess(offset)
                 t2 = time.time()
                 print("Done in %0.2f s" % (t2 - t1))
                 num_entries = len(entries)
@@ -218,7 +224,7 @@ if __name__ == '__main__':
 
     if table == 5:
         worked = 0
-        entries = dm.getUserImageEntries()
+        entries = dm.getUserImageEntries(offset)
         num_entries = len(entries)
         logger.info("Number of User Images to process: %s", len(entries))
         url_list = []
@@ -246,7 +252,7 @@ if __name__ == '__main__':
                 worked = 0
                 print("Getting Remaining URLs ...")
                 t1 = time.time()
-                entries = dm.getUserImageEntries()
+                entries = dm.getUserImageEntries(offset)
                 t2 = time.time()
                 print("Done in %0.2f s" % (t2 - t1))
                 num_entries = len(entries)

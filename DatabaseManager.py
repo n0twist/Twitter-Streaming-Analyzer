@@ -928,14 +928,14 @@ class DatabaseManager:
         conn.commit()
         c.close()
 
-    def getURLEntriesToProcess(self):
+    def getURLEntriesToProcess(self, offset):
         conn = self.db_info_connection
         c = conn.cursor()
 
         if self.db_selection == 1:
             c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is 0 ")
         if self.db_selection == 2:
-            c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is false LIMIT 10000")
+            c.execute("SELECT tweet_id, short_url FROM tweets_urls WHERE is_processed is false LIMIT 10000 OFFSET %s" %offset)
 
         entries = c.fetchall()
 
@@ -978,12 +978,12 @@ class DatabaseManager:
 
         c.close()
 
-    def getUserURLEntriesToProcess(self):
+    def getUserURLEntriesToProcess(self, offset):
         conn = self.db_info_connection
         c = conn.cursor()
 
         if self.db_selection == 2:
-            c.execute("SELECT tweet_id, short_url FROM user_urls WHERE is_processed is false LIMIT 10000")
+            c.execute("SELECT tweet_id, short_url FROM user_urls WHERE is_processed is false LIMIT 10000 OFFSET %s" %offset)
             entries = c.fetchall()
 
             return entries
@@ -994,15 +994,15 @@ class DatabaseManager:
         if self.db_selection == 2:
             self.insertRowPostgreSQL(url_info, "user_urls")
 
-    def getUserImageEntries(self):
+    def getUserImageEntries(self, offset):
         if self.db_selection == 2:
-            return self.getUserImageEntriesPostgreSQL()
+            return self.getUserImageEntriesPostgreSQL(offset)
 
-    def getUserImageEntriesPostgreSQL(self):
+    def getUserImageEntriesPostgreSQL(self, offset):
         conn = self.db_info_connection
         c = conn.cursor()
 
-        c.execute("SELECT user_id, url, type FROM user_images WHERE is_processed is false LIMIT 10000")
+        c.execute("SELECT user_id, url, type FROM user_images WHERE is_processed is false LIMIT 10000 OFFSET %s" %offset)
 
         entries = c.fetchall()
 
@@ -1012,11 +1012,11 @@ class DatabaseManager:
         if self.db_selection == 2:
             self.insertRowPostgreSQL(media_info, "user_images")
 
-    def getMediaEntries(self):
+    def getMediaEntries(self, offset):
         if self.db_selection == 1:
             return self.getMediaEntriesSQLite()
         if self.db_selection == 2:
-            return self.getMediaEntriesPostgreSQL()
+            return self.getMediaEntriesPostgreSQL(offset)
 
     def getMediaEntriesSQLite(self):
         conn = self.db_info_connection
@@ -1028,11 +1028,11 @@ class DatabaseManager:
 
         return entries
 
-    def getMediaEntriesPostgreSQL(self):
+    def getMediaEntriesPostgreSQL(self, offset):
         conn = self.db_info_connection
         c = conn.cursor()
 
-        c.execute("SELECT tweet_id, media_url, type FROM tweets_media WHERE is_processed is false LIMIT 10000")
+        c.execute("SELECT tweet_id, media_url, type FROM tweets_media WHERE is_processed is false LIMIT 10000 OFFSET %s" %offset)
 
         entries = c.fetchall()
 
@@ -1069,11 +1069,11 @@ class DatabaseManager:
 
         c.close()
 
-    def getICardEntries(self):
+    def getICardEntries(self, offset):
         if self.db_selection == 1:
             return self.getICardEntriesSQLite()
         if self.db_selection == 2:
-            return self.getICardEntriesPostreSQL()
+            return self.getICardEntriesPostreSQL(offset)
 
     def getICardEntriesSQLite(self):
         conn = self.db_info_connection
@@ -1085,11 +1085,11 @@ class DatabaseManager:
 
         return entries
 
-    def getICardEntriesPostreSQL(self):
+    def getICardEntriesPostreSQL(self, offset):
         conn = self.db_info_connection
         c = conn.cursor()
 
-        c.execute("SELECT tweet_id FROM tweets_icards WHERE is_processed is false LIMIT 10000;")
+        c.execute("SELECT tweet_id FROM tweets_icards WHERE is_processed is false LIMIT 10000 OFFSET %s;" %offset)
 
         entries = c.fetchall()
 
