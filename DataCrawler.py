@@ -503,6 +503,18 @@ class DataCrawler:
             media_info['path'] = None
             media_info['error'] = True
             return media_info
+        except requests.exceptions.MissingSchema as err:
+            self.logger.error("Error %s - on url %s with proxy: %s - Proxies remaining: %s", err, url, self.proxy,
+                              len(self.proxies))
+            self.proxies.remove(self.proxy)
+            self.refreshProxies()
+
+            media_info = {}
+            media_info["response_code"] = None
+            media_info["hash"] = None
+            media_info['path'] = None
+
+            return media_info
 
         except requests.exceptions.ProxyError as err:
             self.logger.error("ProxyError: %s with proxy: %s - Proxies remaining: %s", url, self.proxy, len(self.proxies))
