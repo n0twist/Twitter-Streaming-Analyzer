@@ -873,7 +873,17 @@ class DatabaseManager:
 
         values = tuple(value_list)
 
-        c.execute(ins_row_sql, values)
+        try:
+            c.execute(ins_row_sql, values)
+        except ValueError as error:
+            print(error)
+            fixed_values = []
+            for value in values:
+                if isinstance(value, str):
+                    fixed_values.append(value.replace("\x00", " "))
+                else:
+                    fixed_values.append(value)
+            c.execute(ins_row_sql, tuple(fixed_values))
 
         conn.commit()
         c.close()
