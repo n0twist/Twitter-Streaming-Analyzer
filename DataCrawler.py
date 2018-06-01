@@ -355,6 +355,20 @@ class DataCrawler:
                 if last_url != None:
                     return last_url
             return None
+        except requests.packages.urllib3.exceptions.LocationParseError as error:
+            self.logger.error("%s - tried to handle %s", error, url)
+            if error.request != None:
+                last_url = error.request.url
+                if last_url != None:
+                    return last_url
+            return None
+        except UnicodeError as error:
+            self.logger.error("%s - tried to handle %s", error, url)
+            if error.request != None:
+                last_url = error.request.url
+                if last_url != None:
+                    return last_url
+            return url
 
     def traceRedirections(self, url, count):
         try:
@@ -412,6 +426,20 @@ class DataCrawler:
                     return last_url
             return None
         except requests.packages.urllib3.exceptions.LocationValueError as error:
+            self.logger.error("%s - tried to handle %s", error, url)
+            if error.request != None:
+                last_url = error.request.url
+                if last_url != None:
+                    return last_url
+            return None
+        except requests.packages.urllib3.exceptions.LocationParseError as error:
+            self.logger.error("%s - tried to handle %s", error, url)
+            if error.request != None:
+                last_url = error.request.url
+                if last_url != None:
+                    return last_url
+            return None
+        except UnicodeError as error:
             self.logger.error("%s - tried to handle %s", error, url)
             if error.request != None:
                 last_url = error.request.url
